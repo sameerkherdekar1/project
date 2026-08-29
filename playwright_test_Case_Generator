@@ -1,0 +1,14 @@
+import streamlit as st
+import google.generativeai as genai
+
+st.title("🎭 Playwright Test Case Generator - by Sameer")
+api_key = st.sidebar.text_input("AQ.Ab8RN6L22e2QHfFoJV4ZPA4Ei_zCkZFUSx7L34dB_6n9CLsQSA", type="password")
+req = st.text_area("Requirement:", "Login with Email and Password")
+
+if st.button("Generate Playwright Code"):
+    genai.configure(api_key="AQ.Ab8RN6L22e2QHfFoJV4ZPA4Ei_zCkZFUSx7L34dB_6n9CLsQSA")
+    model = genai.GenerativeModel("models/gemini-3.5-flash")
+    prompt = f"Requirement: {req}. Generate full Playwright TS code file login.spec.ts with 5 tests using @playwright/test"
+    res = model.generate_content(prompt)
+    st.code(res.text, language="typescript")
+    st.download_button("📥 Download Playwright_Test_Cases.spec.ts", data=res.text, file_name="Playwright_Test_Cases.spec.ts")
