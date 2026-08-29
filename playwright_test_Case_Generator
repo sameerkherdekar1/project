@@ -6,7 +6,7 @@ api_key = st.sidebar.text_input("API KEY" type="password")
 req = st.text_area("Requirement:", "Login with Email and Password")
 
 if st.button("Generate Playwright Code"):
-    genai.configure(api_key="AQ.Ab8RN6L22e2QHfFoJV4ZPA4Ei_zCkZFUSx7L34dB_6n9CLsQSA")
+    genai.configure(api_key="")
     model = genai.GenerativeModel("models/gemini-3.5-flash")
     prompt = f"Requirement: {req}. Generate full Playwright TS code file login.spec.ts with 5 tests using @playwright/test"
     res = model.generate_content(prompt)
