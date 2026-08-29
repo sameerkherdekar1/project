@@ -3,7 +3,7 @@ import google.generativeai as genai
 
 st.title("🎭 Playwright Test Case Generator - by Sameer")
 api_key = st.sidebar.text_input("API KEY" type="password")
-req = st.text_area("Requirement:", "Login with Email and Password")
+req = st.text_area("Requirement:","Login with Email and Password")
 
 if st.button("Generate Playwright Code"):
     genai.configure(api_key=api_key)
