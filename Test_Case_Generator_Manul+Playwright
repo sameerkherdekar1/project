@@ -1,0 +1,14 @@
+import streamlit as st
+import google.generativeai as genai
+
+st.title("📝 generative AI Case Generator - by Sameer")
+api_key = st.sidebar.text_input("Gemini API Key", type="password")
+req = st.text_area("Requirement:", "Login with Email and Password")
+
+if st.button("Generate Manual Cases"):
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("models/gemini-3.5-flash")
+    prompt = f"Generate 10 Manual Test Cases for: {req} in table: ID, Scenario, Steps, Data, Expected, Priority"
+    res = model.generate_content(prompt)
+    st.markdown(res.text)
+    st.download_button("📥 Download Manual_API_Test_Cases.csv", data=res.text, file_name="Manual_API_Test_Cases.csv")
