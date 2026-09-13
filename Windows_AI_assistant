@@ -1,1 +1,265 @@
+Windows_Tools.py
+import os
+import webbrowser
+import psutil
+from pathlib import Path
 
+
+ALLOWED_APPS = {
+    "notepad": "notepad.exe",
+    "calculator": "calc.exe",
+    "paint": "paint.exe",
+
+    "microsoft word": "WINWORD.EXE",
+    "microsoft excel": "EXCEL.EXE",
+    "microsoft powerpoint": "POWERPNT.EXE",
+    "microsoft outlook": "OUTLOOK.EXE",
+    "microsoft onenote": "ONENOTE.EXE",
+    "microsoft access": "MSACCESS.EXE",
+    "microsoft publisher": "MSPUB.EXE",
+}
+
+
+def open_application(app_name):
+    app_name = app_name.lower().strip()
+
+    if app_name not in ALLOWED_APPS:
+        return f"I cannot open '{app_name}'. It is not in the allowed application list."
+
+    os.startfile(ALLOWED_APPS[app_name])
+    return f"Opened {app_name}."
+
+
+def open_website(url):
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    webbrowser.open(url)
+    return f"Opened {url}"
+
+
+def get_system_info():
+    cpu = psutil.cpu_percent(interval=1)
+    memory = psutil.virtual_memory()
+
+    return (
+        f"CPU usage: {cpu}%\n"
+        f"RAM usage: {memory.percent}%\n"
+        f"RAM available: {round(memory.available / (1024**3), 2)} GB"
+    )
+
+
+def search_files(filename):
+    results = []
+
+    home = Path.home()
+
+    try:
+        for file in home.rglob("*"):
+            if file.is_file() and filename.lower() in file.name.lower():
+                results.append(str(file))
+
+            if len(results) >= 10:
+                break
+
+    except PermissionError:
+        pass
+
+    if not results:
+        return "No matching files found."
+
+    return "\n".join(results)
+brain.py
+import json
+import ollama
+
+from windows_tools import (
+    open_application,
+    open_website,
+    get_system_info,
+    search_files,
+)
+
+
+SYSTEM_PROMPT = """
+You are a Windows Desktop Assistant.
+
+You can use these tools:
+
+open_application
+Arguments:
+{"app_name": "notepad"}
+
+open_website
+Arguments:
+{"url": "https://google.com"}
+
+get_system_info
+Arguments:
+{}
+
+search_files
+Arguments:
+{"filename": "resume"}
+
+Return ONLY JSON.
+
+For a tool:
+{
+    "action": "tool",
+    "tool_name": "open_application",
+    "arguments": {
+        "app_name": "notepad"
+    }
+}
+
+For normal conversation:
+{
+    "action": "chat",
+    "response": "Hello!"
+}
+
+Never execute arbitrary shell commands.
+Never delete files.
+Never modify Windows settings.
+"""
+
+
+def execute_tool(tool_name, arguments):
+
+    if tool_name == "open_application":
+        return open_application(
+            arguments.get("app_name", "")
+        )
+
+    if tool_name == "open_website":
+        return open_website(
+            arguments.get("url", "")
+        )
+
+    if tool_name == "get_system_info":
+        return get_system_info()
+
+    if tool_name == "search_files":
+        return search_files(
+            arguments.get("filename", "")
+        )
+
+    return "Unknown tool."
+
+
+def ask_ai(user_message):
+
+    response = ollama.chat(
+        model="llama3.2",
+        messages=[
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
+    )
+
+    content = response["message"]["content"]
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        return content
+
+    if data["action"] == "chat":
+        return data["response"]
+
+    if data["action"] == "tool":
+
+        result = execute_tool(
+            data["tool_name"],
+            data.get("arguments", {})
+        )
+
+        return result
+
+    return "I could not understand the request."
+import sys
+
+from PySide6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QTextEdit,
+    QLineEdit,
+    QPushButton,
+)
+main.py
+from brain import ask_ai
+
+
+class AIAssistant(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("AI Windows Assistant")
+        self.resize(600, 500)
+
+        layout = QVBoxLayout()
+
+        self.chat = QTextEdit()
+        self.chat.setReadOnly(True)
+
+        self.input_box = QLineEdit()
+        self.input_box.setPlaceholderText(
+            "Type your command..."
+        )
+
+        self.send_button = QPushButton("Send")
+
+        self.send_button.clicked.connect(
+            self.send_message
+        )
+
+        self.input_box.returnPressed.connect(
+            self.send_message
+        )
+
+        layout.addWidget(self.chat)
+        layout.addWidget(self.input_box)
+        layout.addWidget(self.send_button)
+
+        self.setLayout(layout)
+
+    def send_message(self):
+
+        message = self.input_box.text().strip()
+
+        if not message:
+            return
+
+        self.chat.append(f"You: {message}")
+
+        self.input_box.clear()
+
+        try:
+            response = ask_ai(message)
+
+            self.chat.append(
+                f"AI: {response}\n"
+            )
+
+        except Exception as e:
+
+            self.chat.append(
+                f"Error: {str(e)}\n"
+            )
+
+
+app = QApplication(sys.argv)
+
+window = AIAssistant()
+window.show()
+
+sys.exit(app.exec())
