@@ -1,0 +1,148 @@
+import cv2
+import os
+import requests
+from datetime import datetime
+from dotenv import load_dotenv
+import face_recognition
+
+
+load_dotenv() # Load API Keys from.env file
+
+
+
+class Config:
+    CCTV_RTSP_LINK = os.getenv("CCTV_RTSP_LINK", "rtsp://192.168.1.10/counter2")
+    API_TOKEN = os.getenv("BANK_API_TOKEN", "YOUR_BANK_API_TOKEN_HERE")
+    FAKE_NOTE_API_KEY = os.getenv("FAKE_NOTE_API_KEY", "YOUR_AI_MODEL_API_KEY")
+    BANK_SERVER_URL = os.getenv("BANK_SERVER_URL", "https://bank-server.local/api/fraud-report")
+    SAVE_FACE_IMAGE = False # Keep False for Privacy, True only for Fraud case
+
+
+def detect_fake_currency(note_image_path):
+    """
+    Check if the note is real or fake
+    Your CNN Model will come here
+    """
+    print(f"[{datetime.now()}] Checking Note: {note_image_path}")
+
+    # TODO: Replace with your actual AI Model
+    # result = your_cnn_model.predict(note_image_path)
+
+    # Demo Data for now
+    is_fake = True
+    confidence = 98.5
+    serial_no = "4AF123456"
+    denomination = 500
+
+    return {
+        "is_fake": is_fake,
+        "confidence": confidence,
+        "serial_no": serial_no,
+        "denomination": denomination,
+        "timestamp": datetime.now().strftime("%d/%m/%Y - %I:%M:%S %p")
+    }
+
+
+def capture_face_from_cctv(target_timestamp):
+    """
+    Capture the face from CCTV at the exact time fake note was detected
+    """
+    print(f"[{target_timestamp}] Capturing face from CCTV...")
+
+    try:
+        cap = cv2.VideoCapture(Config.CCTV_RTSP_LINK)
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret:
+            return None, "CCTV Not Connected!"
+
+        # Detect Face
+        face_locations = face_recognition.face_locations(frame)
+
+        if not face_locations:
+            return None, "No Face Found at Counter!"
+
+        # Crop First Face
+        top, right, bottom, left = face_locations[0]
+        face_image = frame[top:bottom, left:right]
+
+        face_match_score = 95.2
+        face_filename = f"fraud_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+
+        if Config.SAVE_FACE_IMAGE:
+            cv2.imwrite(face_filename, face_image)
+
+        return {
+            "face_image_path": face_filename,
+            "face_match_score": face_match_score,
+            "face_found": True
+        }, "Success"
+
+    except Exception as e:
+        return None, str(e)
+
+
+def send_fraud_report_to_bank(fake_note_data, face_data, account_no, counter_no):
+    """
+    Send all evidence to Bank Server using Secure Token and API Key
+    """
+    headers = {
+        "Authorization": f"Bearer {Config.API_TOKEN}",
+        "X-API-KEY": Config.FAKE_NOTE_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "alert_type": "FAKE_CURRENCY_DETECTED",
+        "timestamp": fake_note_data['timestamp'],
+        "counter_no": counter_no,
+        "account_number": account_no,
+        "note_details": {
+            "denomination": fake_note_data['denomination'],
+            "serial_no": fake_note_data['serial_no'],
+            "confidence": fake_note_data['confidence']
+        },
+        "cctv_evidence": {
+            "face_match_score": face_data.get('face_match_score', 0),
+            "face_image_ref": face_data.get('face_image_path', 'Not Saved - Privacy Mode'),
+            "cctv_time_synced": True
+        },
+        "reported_by": "AI_Fake_Currency_Detector_Agent_v2"
+    }
+
+    print("\n🚨 FAKE NOTE DETECTED! Report Generating...")
+    print(payload)
+
+    try:
+        # UNCOMMENT FOR LIVE
+        # response = requests.post(Config.BANK_SERVER_URL, json=payload, headers=headers)
+        # if response.status_code == 200:
+        # print("✅ Report Sent to Bank Server!")
+
+        print("✅ [DEMO] Report Sent Securely with Token! (Will be Live after Server URL)")
+        return True
+    except Exception as e:
+        print(f"❌ Server Error: {e}")
+        return False
+
+
+if __name__ == "__main__":
+    print("--- AI Fake Currency Detector Agent Started ---")
+
+    NOTE_IMAGE = "captured_note.jpg"
+    ACCOUNT_NO = "123456789012"
+    COUNTER_NO = "2"
+
+    result = detect_fake_currency(NOTE_IMAGE)
+
+    if result['is_fake']:
+        face_data, msg = capture_face_from_cctv(result['timestamp'])
+        if face_data:
+            send_fraud_report_to_bank(result, face_data, ACCOUNT_NO, COUNTER_NO)
+        else:
+            print(f"Face not found: {msg}")
+            send_fraud_report_to_bank(result, {}, ACCOUNT_NO, COUNTER_NO)
+    else:
+        print("✅ Note is Real!")
+
