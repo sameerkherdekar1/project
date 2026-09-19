@@ -131,9 +131,9 @@ if __name__ == "__main__":
     print("--- AI Fake Currency Detector Agent Started ---")
 
     NOTE_IMAGE = ""C:\Users\Sameer\Downloads\3.jpg"
-"C:\Users\Sameer\Downloads\2.jpg"
-"C:\Users\Sameer\Downloads\1.jpg"
-"C:\Users\Sameer\Downloads\4.jpg"
+"C:\Users\Sameer\Downloads\2.jpg",
+"C:\Users\Sameer\Downloads\1.jpg",
+"C:\Users\Sameer\Downloads\4.jpg",
     ACCOUNT_NO = "123456789012"
     COUNTER_NO = "2"
 
